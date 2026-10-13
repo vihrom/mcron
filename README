@@ -1,0 +1,57 @@
+mcron
+=====
+A minimal, resource-efficient cron daemon written in pure C, with
+anacron-style catch-up for systems with intermittent uptime.
+
+
+Features
+--------
+* Zero Bloat: Standard C99, no dependencies beyond a POSIX libc.
+
+* Catch-Up: Remembers the last processed minute. After downtime (power
+  off, suspend, daemon restart) every job whose schedule fell into the gap
+  runs once. A job is never run twice for the same minute.
+
+* Clock-Jump Safe: If the clock is set back, nothing runs until time
+  passes the recorded minute again; no duplicate runs and no task floods.
+
+* Strict Parsing: Invalid lines are rejected and logged to syslog instead
+  of being silently misread.
+
+* Hardened: Config and state directory must be owned by the daemon's user
+  and not group/world writable; state files are written atomically; a locked
+  pid file prevents a second instance.
+
+
+Dependencies
+------------
+A standard POSIX-compliant C compiler and make
+
+
+Installation
+------------
+To compile the binary, install it, and set up the default configuration file:
+
+    sudo make clean install
+
+To customize the compiler, paths, or flags, edit `config.mk` before building.
+
+
+Usage
+-----
+Edit `/etc/mcron.conf`:
+
+    # min hour dom mon dow command
+    0 4 * * 1 /usr/local/bin/maintenance.sh
+
+Each field is `*` or a single number. Lists, ranges and steps are not
+supported. The file must be owned by the user running mcron and must not be
+writable by group or others.
+
+    mcron       run in the background
+    mcron -f    stay in the foreground (for runit and friends)
+    mcron -v    print the version
+
+For detailed documentation, refer to the man page:
+
+    man mcron

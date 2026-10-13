@@ -1,0 +1,113 @@
+.TH MCRON 1 "2026-10-12" "1.1.0" "User Manuals"
+.SH NAME
+mcron \- minimal cron daemon with catch-up of missed jobs
+.SH SYNOPSIS
+.B mcron
+[\fB\-f\fR | \fB\-v\fR]
+.SH DESCRIPTION
+.B mcron
+reads job schedules from a flat configuration file and runs the commands
+with
+.BR /bin/sh (1)
+at the scheduled minute. If the system was off or suspended, jobs whose
+schedule fell into the gap are run once after it comes back
+(anacron-like catch-up).
+.PP
+By default
+.B mcron
+detaches and runs in the background. Output of started jobs is discarded.
+Start-ups of jobs and configuration problems are logged to
+.BR syslog (3)
+with facility
+.BR cron .
+.SH OPTIONS
+.TP
+.B \-f
+Stay in the foreground and also log to standard error. Use this when
+.B mcron
+is supervised, for example by runit.
+.TP
+.B \-v
+Print the version and exit.
+.SH CONFIGURATION
+The configuration file is
+.IR /etc/mcron.conf .
+Each line holds five schedule fields followed by a command:
+.PP
+.RS
+.I min hour dom mon dow command
+.RE
+.TP
+.B min
+Minute, 0\-59
+.TP
+.B hour
+Hour, 0\-23
+.TP
+.B dom
+Day of the month, 1\-31
+.TP
+.B mon
+Month, 1\-12
+.TP
+.B dow
+Day of the week, 0\-7 (0 and 7 are Sunday)
+.PP
+Every field is either
+.B *
+(any value) or a single number. Lists, ranges and steps such as
+.BR 1,15 ,
+.B 1\-5
+or
+.B */5
+are not supported; a line containing them is rejected and reported to
+syslog. If both
+.B dom
+and
+.B dow
+are given, both must match (this differs from POSIX cron). Lines starting
+with
+.B #
+and empty lines are ignored. Lines longer than 254 characters are ignored.
+Times are interpreted in the local time zone.
+.PP
+The file must be a regular file owned by the user running
+.B mcron
+and must not be writable by group or others, otherwise it is not used.
+Changes are picked up automatically.
+.SH CATCH-UP
+.B mcron
+records the last minute it processed in
+.IR /var/lib/mcron/last_tick .
+After a gap of up to 32 days every job whose schedule matched any minute
+in the gap is run once, regardless of how many runs were missed. For a
+longer gap, or on the first start, only the current minute is processed.
+If the clock is set back, nothing is run until time passes the recorded
+minute again. Jobs that run longer than their interval may overlap; use
+.BR flock (1)
+inside the command to prevent that.
+.SH FILES
+.TP
+.I /etc/mcron.conf
+Configuration file.
+.TP
+.I /var/lib/mcron/
+State directory. Must be owned by the user running
+.B mcron
+and not writable by group or others.
+.TP
+.I /var/lib/mcron/last_tick
+Last processed minute, as seconds since the Epoch.
+.TP
+.I /var/lib/mcron/mcron.pid
+Pid file, locked while the daemon runs. A second instance refuses to start.
+.SH EXIT STATUS
+.B mcron
+exits with a non-zero status if it cannot set up its state directory, is
+already running, or is called with invalid arguments.
+.SH SEE ALSO
+.BR cron (8),
+.BR flock (1),
+.BR syslog (3)
+.SH AUTHOR
+Vitalik Khatuntsev <vitalik.khatuntsev@gmail.com>
