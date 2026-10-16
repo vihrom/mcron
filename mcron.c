@@ -6,8 +6,6 @@
  * schedule fell into the gap runs once; a minute is never processed twice.
  */
 
-#define _DEFAULT_SOURCE
-
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -37,20 +35,25 @@
 #define TICK_TMP "last_tick.tmp"
 #define PID_FILE "mcron.pid"
 
-#define MAX_LINE 256 /* keep in sync with the %255[^\n] width below */
-#define TOKEN_SIZE 16 /* keep in sync with the %15s widths below */
-#define NUMBER_BUF_SIZE 32
-#define DECIMAL_BASE 10
-#define DIR_MODE 0755
-#define FILE_MODE 0644
-#define DAEMON_UMASK 022
-#define EXIT_CANNOT_EXEC 127
-#define SUNDAY_ALIAS 7
-#define SECONDS_PER_MINUTE 60L
-#define SECONDS_PER_DAY (24L * 60L * SECONDS_PER_MINUTE)
-#define MAX_CATCHUP (32L * SECONDS_PER_DAY)
-#define ANY (-1)
-#define NO_FD (-1)
+enum {
+	MAX_LINE = 256, /* keep in sync with the %255[^\n] width below */
+	TOKEN_SIZE = 16, /* keep in sync with the %15s widths below */
+	NUMBER_BUF_SIZE = 32,
+	DECIMAL_BASE = 10,
+	DIR_MODE = 0755,
+	FILE_MODE = 0644,
+	DAEMON_UMASK = 022,
+	EXIT_CANNOT_EXEC = 127,
+	SUNDAY_ALIAS = 7
+};
+
+enum {
+	SECONDS_PER_MINUTE = 60L,
+	SECONDS_PER_DAY = (24L * 60L * SECONDS_PER_MINUTE),
+	MAX_CATCHUP = (32L * SECONDS_PER_DAY)
+};
+
+enum { ANY = -1, NO_FD = -1 };
 
 enum { FIELD_MIN, FIELD_HOUR, FIELD_DOM, FIELD_MON, FIELD_DOW, FIELD_COUNT };
 enum { LINE_OK, LINE_TOO_LONG, LINE_EOF };
@@ -341,13 +344,16 @@ read_line(FILE *conf, char *buf)
 {
 	size_t len;
 
-	if (!fgets(buf, MAX_LINE, conf))
+	if (!fgets(buf, MAX_LINE, conf)) {
+		clearerr(conf);
 		return LINE_EOF;
+	}
 	len = strlen(buf);
 	if (len > 0 && buf[len - 1] == '\n')
 		len--;
 	else if (!feof(conf)) {
 		skip_line(conf);
+		clearerr(conf);
 		return LINE_TOO_LONG;
 	}
 	while (len > 0 && isspace((unsigned char)buf[len - 1]))

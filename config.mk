@@ -10,7 +10,7 @@ STDFLAG = -std=c99
 
 CPPFLAGS = -DVERSION=\"${VERSION}\"
 
-BASE_CFLAGS = ${STDFLAG} -Wall -Wextra -Wpedantic -Wshadow -Werror
+BASE_CFLAGS = ${STDFLAG} -Wall -Wextra -Wpedantic -Wshadow -Werror -D_DEFAULT_SOURCE
 
 # Default mode is PROD
 MODE = PROD
