@@ -1,2 +1,0 @@
-Checks: 'bugprone-*,performance-*,readability-*,modernize-*,clang-analyzer-*,-readability-braces-around-statements'
-WarningsAsErrors: 'bugprone-*,performance-*'
