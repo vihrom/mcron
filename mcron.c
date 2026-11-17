@@ -56,7 +56,7 @@ enum {
 enum { ANY = -1, NO_FD = -1 };
 
 enum { FIELD_MIN, FIELD_HOUR, FIELD_DOM, FIELD_MON, FIELD_DOW, FIELD_COUNT };
-enum { LINE_OK, LINE_TOO_LONG, LINE_EOF };
+enum { LINE_OK, LINE_TOO_LONG, LINE_EOF, LINE_ERROR };
 
 static const int field_low[FIELD_COUNT] = { 0, 0, 1, 1, 0 };
 static const int field_high[FIELD_COUNT] = { 59, 23, 31, 12, 7 };
@@ -327,8 +327,8 @@ process_job(const State *state, const Window *window, const char *line)
 	}
 }
 
-/* discard the rest of an over-long line */
-static void
+/* discard the rest of an over-long line, returns -1 on stream error */
+static int
 skip_line(FILE *conf)
 {
 	int chr;
@@ -336,6 +336,7 @@ skip_line(FILE *conf)
 	do {
 		chr = getc(conf);
 	} while (chr != EOF && chr != '\n');
+	return ferror(conf) ? -1 : 0;
 }
 
 /* reads one line into buf (MAX_LINE bytes), strips trailing whitespace */
@@ -344,16 +345,17 @@ read_line(FILE *conf, char *buf)
 {
 	size_t len;
 
-	if (!fgets(buf, MAX_LINE, conf)) {
-		clearerr(conf);
+	if (feof(conf))
 		return LINE_EOF;
-	}
+	if (!fgets(buf, MAX_LINE, conf))
+		return ferror(conf) ? LINE_ERROR : LINE_EOF;
+
 	len = strlen(buf);
-	if (len > 0 && buf[len - 1] == '\n')
+	if (len > 0 && buf[len - 1] == '\n') {
 		len--;
-	else if (!feof(conf)) {
-		skip_line(conf);
-		clearerr(conf);
+	} else if (!feof(conf)) {
+		if (skip_line(conf) < 0)
+			return LINE_ERROR;
 		return LINE_TOO_LONG;
 	}
 	while (len > 0 && isspace((unsigned char)buf[len - 1]))
@@ -410,6 +412,11 @@ run_jobs(State *state, const Window *window)
 	if (!conf)
 		return;
 	while ((status = read_line(conf, buf)) != LINE_EOF) {
+		if (status == LINE_ERROR) {
+			syslog(LOG_ERR, "cannot read %s: %s",
+			       CONFIG_FILE, strerror(errno));
+			break;
+		}
 		if (status == LINE_TOO_LONG) {
 			if (state->report)
 				syslog(LOG_ERR, "config: over-long line "
